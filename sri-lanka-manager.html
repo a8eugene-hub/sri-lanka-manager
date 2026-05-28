@@ -372,6 +372,40 @@ function doSync(){
   syncChunk(payload, 0, btn, pill, lbl);
 }
 
+// 1件だけSheetsに送る
+function syncOne(task, type){
+  type = type || 'update_task';
+  const payload={
+    id:task.id,
+    what:task.what,
+    who:mn(task.who).split('（')[0].split('(')[0].trim(),
+    biz:bn(task.biz),
+    start:task.start||'',
+    end:task.end||'',
+    pri:task.pri,
+    why:(task.why||'').slice(0,50),
+    how:(task.how||'').slice(0,50),
+    done:task.done
+  };
+  const cbName='gasOne_'+Date.now();
+  const url=WH+'?type='+type+'&data='+encodeURIComponent(JSON.stringify(payload))+'&callback='+cbName;
+  const script=document.createElement('script');
+  script.src=url;
+  const pill=document.getElementById('pill');
+  pill.className='pill ing'; pill.textContent='更新中...';
+  window[cbName]=function(){
+    pill.className='pill ok'; pill.textContent='更新完了';
+    setTimeout(()=>{pill.className='pill';},2000);
+    document.body.removeChild(script); delete window[cbName];
+  };
+  script.onerror=function(){
+    pill.className='pill err'; pill.textContent='更新失敗';
+    try{document.body.removeChild(script);}catch(e){} delete window[cbName];
+  };
+  setTimeout(function(){if(window[cbName]){pill.className='pill err';pill.textContent='Timeout';try{document.body.removeChild(script);}catch(e){}delete window[cbName];}},10000);
+  document.body.appendChild(script);
+}
+
 function syncChunk(payload, offset, btn, pill, lbl){
   const CHUNK=8;
   const chunk=payload.slice(offset, offset+CHUNK);
@@ -461,7 +495,7 @@ function rTasks(){
   document.getElementById('cht').innerHTML=chipsH();
 }
 
-function tog(id){const t=tasks.find(x=>x.id===id);if(t){t.done=!t.done;ra();doSync();}}
+function tog(id){const t=tasks.find(x=>x.id===id);if(t){t.done=!t.done;ra();syncOne(t,'update_task');}}
 
 function rGantt(){
   const f=tasks.filter(t=>(selBiz==='all'||t.biz===selBiz)&&t.end);
@@ -567,7 +601,7 @@ function saveTask(){
   const modal=document.getElementById('modal');
   const editId=modal.dataset.editId;
   if(editId){
-    // 編集モード
+    // 編集モード → 1件だけ更新
     const t=tasks.find(x=>x.id===parseInt(editId));
     if(t){
       t.what=what;
@@ -578,13 +612,16 @@ function saveTask(){
       t.pri=document.getElementById('fpri').value;
       t.why=document.getElementById('fwy').value||'';
       t.how=document.getElementById('fhw').value||'';
+      syncOne(t, 'update_task');
     }
     delete modal.dataset.editId;
   } else {
-    // 新規追加モード
-    tasks.push({id:idN++,what,who:document.getElementById('fwho').value,biz:document.getElementById('fbiz').value,start:document.getElementById('fst').value,end:document.getElementById('fen').value,pri:document.getElementById('fpri').value,why:document.getElementById('fwy').value||'',how:document.getElementById('fhw').value||'',done:false});
+    // 新規追加 → 末尾に追加
+    const newTask={id:idN++,what,who:document.getElementById('fwho').value,biz:document.getElementById('fbiz').value,start:document.getElementById('fst').value,end:document.getElementById('fen').value,pri:document.getElementById('fpri').value,why:document.getElementById('fwy').value||'',how:document.getElementById('fhw').value||'',done:false};
+    tasks.push(newTask);
+    syncOne(newTask, 'update_task');
   }
-  closeModal();document.getElementById('fw').value='';ra();doSync();
+  closeModal();document.getElementById('fw').value='';ra();
 }
 
 // 事業モーダル
@@ -644,8 +681,10 @@ function openEdit(id){
 
 function delTask(id){
   if(!confirm('このタスクを削除しますか？'))return;
+  const t=tasks.find(x=>x.id===id);
   tasks=tasks.filter(x=>x.id!==id);
-  ra();doSync();
+  if(t) syncOne(t, 'delete_task');
+  ra();
 }
 
 function loadFromSheets(){
