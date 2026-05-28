@@ -337,7 +337,7 @@ let tasks=[
 function bn(id){const b=BIZ.find(x=>x.id===id);return b?b[lang]:id}
 function mn(id){const m=MEM.find(x=>x.id===id);return m?m.name:id}
 function tod(){return new Date().toISOString().split('T')[0]}
-function isOver(t){return !t.done&&t.end<tod()}
+function isOver(t){return !t.done&&t.end&&t.end<tod()}
 function gcol(id){const cols=['#1D6B4E','#1A4A7A','#7A3A1A','#3A7A1A','#8B5E0A','#3C3489','#7A1A1A','#7A1A4A','#0A6B7A','#6B5A0A'];const i=BIZ.findIndex(x=>x.id===id);return cols[i%cols.length]||'#888'}
 function initials(name){return name.replace(/（.*?）/g,'').replace(/\(.*?\)/g,'').trim().slice(0,2).toUpperCase()}
 
