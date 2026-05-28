@@ -356,21 +356,55 @@ function doSync(){
   const btn=document.getElementById('synbtn'),pill=document.getElementById('pill'),lbl=document.getElementById('synlbl');
   btn.disabled=true; lbl.textContent='送信中...';
   pill.className='pill ing'; pill.textContent='Sheetsへ送信中';
-  const payload=tasks.map(t=>({id:t.id,what:t.what,who:mn(t.who),biz:bn(t.biz),start:t.start||'',end:t.end,pri:t.pri,why:t.why||'',how:t.how||'',done:t.done}));
-  const cbName='gasCallback_'+Date.now();
-  const url=WH+'?type=tasks&data='+encodeURIComponent(JSON.stringify(payload))+'&callback='+cbName;
-  const script=document.createElement('script');
-  script.src=url;
-  window[cbName]=function(){
+  // 全タスクをシンプルに圧縮して送信
+  const payload=tasks.map(t=>({
+    id:t.id,
+    what:t.what,
+    who:mn(t.who).split('（')[0].split('(')[0].trim(),
+    biz:bn(t.biz),
+    start:t.start||'',
+    end:t.end||'',
+    pri:t.pri,
+    why:(t.why||'').slice(0,30),
+    how:(t.how||'').slice(0,30),
+    done:t.done
+  }));
+  syncChunk(payload, 0, btn, pill, lbl);
+}
+
+function syncChunk(payload, offset, btn, pill, lbl){
+  const CHUNK=8;
+  const chunk=payload.slice(offset, offset+CHUNK);
+  if(chunk.length===0){
+    // 全部送信完了
     lastSync=new Date().toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'});
     pill.className='pill ok'; pill.textContent='同期完了';
     document.getElementById('slog').textContent='最終同期：'+lastSync;
     setTimeout(()=>{pill.className='pill';},3000);
     btn.disabled=false; lbl.textContent='Sync';
+    return;
+  }
+  // 最初のチャンクだけclearしてwrite、残りはappend
+  const type = offset===0 ? 'tasks' : 'tasks_append';
+  const cbName='gasCallback_'+Date.now()+'_'+offset;
+  const url=WH+'?type='+type+'&data='+encodeURIComponent(JSON.stringify(chunk))+'&callback='+cbName;
+  const script=document.createElement('script');
+  script.src=url;
+  lbl.textContent=(offset+chunk.length)+'/'+payload.length;
+  window[cbName]=function(){
     document.body.removeChild(script); delete window[cbName];
+    syncChunk(payload, offset+CHUNK, btn, pill, lbl);
   };
-  script.onerror=function(){pill.className='pill err';pill.textContent='失敗';btn.disabled=false;lbl.textContent='Sync';try{document.body.removeChild(script);}catch(e){}delete window[cbName];};
-  setTimeout(function(){if(window[cbName]){pill.className='pill err';pill.textContent='Timeout';btn.disabled=false;lbl.textContent='Sync';try{document.body.removeChild(script);}catch(e){}delete window[cbName];}},10000);
+  script.onerror=function(){
+    pill.className='pill err'; pill.textContent='失敗('+offset+')';
+    btn.disabled=false; lbl.textContent='Sync';
+    try{document.body.removeChild(script);}catch(e){} delete window[cbName];
+  };
+  setTimeout(function(){if(window[cbName]){
+    pill.className='pill err';pill.textContent='Timeout';
+    btn.disabled=false;lbl.textContent='Sync';
+    try{document.body.removeChild(script);}catch(e){}delete window[cbName];
+  }},15000);
   document.body.appendChild(script);
 }
 
