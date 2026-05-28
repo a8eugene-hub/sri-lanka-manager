@@ -474,8 +474,8 @@ function tkH(t){
       <div class="tt${t.done?' dn':''}">${t.what}</div>
       <div class="tags">
         ${b?`<span class="tg tb2">${b[lang]}</span>`:''}
-        ${m?`<span class="tg tw">${m.name.split('（')[0].split('(')[0].trim()}</span>`:''}
-        ${t.start||t.end?`<span class="tg td">${t.start||''}${t.end?'〜'+t.end:''}</span>`:''}
+        ${m?`<span class="tg tw">${m.name}</span>`:''}
+        ${(t.start&&t.end)?`<span class="tg td">${t.start}〜${t.end}</span>`:t.end?`<span class="tg td">${t.end}まで</span>`:t.start?`<span class="tg td">${t.start}〜</span>`:''}
         ${t.done?`<span class="tg tdn">完了</span>`:o?`<span class="tg to">期限超過</span>`:''}
       </div>
     </div>
@@ -514,7 +514,7 @@ function rGantt(){
     const m=MEM.find(x=>x.id===t.who);
     return`<tr>
       <td class="gtd" style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">${t.what}</td>
-      <td class="gtd" style="color:var(--text3)">${m?m.name.split('（')[0].split('(')[0].trim():''}</td>
+      <td class="gtd" style="color:var(--text3)">${m?m.name:''}</td>
       <td class="gtd"><div class="gbw"><div class="gb" style="margin-left:${left}%;width:${w}%;background:${gcol(t.biz)};opacity:${t.done?0.4:1}">${t.done?'✓':''}</div></div></td>
     </tr>`;
   }).join('')}</tbody>`;
