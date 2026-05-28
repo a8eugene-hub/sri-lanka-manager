@@ -441,10 +441,12 @@ function tkH(t){
       <div class="tags">
         ${b?`<span class="tg tb2">${b[lang]}</span>`:''}
         ${m?`<span class="tg tw">${m.name.split('（')[0].split('(')[0].trim()}</span>`:''}
-        ${t.start?`<span class="tg td">${t.start}〜${t.end}</span>`:''}
+        ${t.start||t.end?`<span class="tg td">${t.start||''}${t.end?'〜'+t.end:''}</span>`:''}
         ${t.done?`<span class="tg tdn">完了</span>`:o?`<span class="tg to">期限超過</span>`:''}
       </div>
     </div>
+    <button onclick="openEdit(${t.id})" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;flex-shrink:0"><i class="ti ti-pencil" style="font-size:15px"></i></button>
+    <button onclick="delTask(${t.id})" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;flex-shrink:0"><i class="ti ti-trash" style="font-size:15px"></i></button>
   </div>`;
 }
 
@@ -536,18 +538,52 @@ function subRpt(){
 
 // タスクモーダル
 function openAdd(){
-  document.getElementById('modal').classList.remove('hidden');
+  const modal=document.getElementById('modal');
+  delete modal.dataset.editId;
+  modal.querySelector('.mttl span').textContent='新規タスク';
+  modal.querySelector('.sbtn').textContent='保存 → Sheets同期';
+  document.getElementById('fw').value='';
+  document.getElementById('fwy').value='';
+  document.getElementById('fhw').value='';
   document.getElementById('fwho').innerHTML=MEM.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
   document.getElementById('fbiz').innerHTML=BIZ.map(b=>`<option value="${b.id}">${b[lang]}</option>`).join('');
-  document.getElementById('fst').value=tod();
-  document.getElementById('fen').value=tod();
+  document.getElementById('fst').value='';
+  document.getElementById('fen').value='';
+  document.getElementById('fpri').value='mid';
+  modal.classList.remove('hidden');
 }
-function closeModal(){document.getElementById('modal').classList.add('hidden')}
+function closeModal(){
+  const modal=document.getElementById('modal');
+  modal.classList.add('hidden');
+  delete modal.dataset.editId;
+  modal.querySelector('.mttl span').textContent='新規タスク';
+  modal.querySelector('.sbtn').textContent='保存 → Sheets同期';
+  document.getElementById('fw').value='';
+}
 function closeM(e){if(e.target.id==='modal')closeModal()}
 function saveTask(){
   const what=document.getElementById('fw').value.trim();
   if(!what)return;
-  tasks.push({id:idN++,what,who:document.getElementById('fwho').value,biz:document.getElementById('fbiz').value,start:document.getElementById('fst').value,end:document.getElementById('fen').value,pri:document.getElementById('fpri').value,why:document.getElementById('fwy').value||'',how:document.getElementById('fhw').value||'',done:false});
+  const modal=document.getElementById('modal');
+  const editId=modal.dataset.editId;
+  if(editId){
+    // 編集モード
+    const t=tasks.find(x=>x.id===parseInt(editId));
+    if(t){
+      t.what=what;
+      t.who=document.getElementById('fwho').value;
+      t.biz=document.getElementById('fbiz').value;
+      t.start=document.getElementById('fst').value;
+      t.end=document.getElementById('fen').value;
+      t.pri=document.getElementById('fpri').value;
+      t.why=document.getElementById('fwy').value||'';
+      t.how=document.getElementById('fhw').value||'';
+    }
+    delete modal.dataset.editId;
+  } else {
+    // 新規追加モード
+    tasks.push({id:idN++,what,who:document.getElementById('fwho').value,biz:document.getElementById('fbiz').value,start:document.getElementById('fst').value,end:document.getElementById('fen').value,pri:document.getElementById('fpri').value,why:document.getElementById('fwy').value||'',how:document.getElementById('fhw').value||'',done:false});
+  }
   closeModal();document.getElementById('fw').value='';ra();doSync();
 }
 
@@ -586,6 +622,30 @@ function saveMem(){
   const av=initials(name);
   MEM.push({id:'mem_'+Date.now(),name,role:document.getElementById('mem-role').value.trim()||'Staff',av,bg:selAvColor.bg,tc:selAvColor.tc});
   closeMemModal();ra();
+}
+
+function openEdit(id){
+  const t=tasks.find(x=>x.id===id);
+  if(!t)return;
+  document.getElementById('fw').value=t.what;
+  document.getElementById('fwho').innerHTML=MEM.map(m=>`<option value="${m.id}"${m.id===t.who?' selected':''}>${m.name}</option>`).join('');
+  document.getElementById('fbiz').innerHTML=BIZ.map(b=>`<option value="${b.id}"${b.id===t.biz?' selected':''}>${b[lang]}</option>`).join('');
+  document.getElementById('fst').value=t.start||'';
+  document.getElementById('fen').value=t.end||'';
+  document.getElementById('fpri').value=t.pri||'mid';
+  document.getElementById('fwy').value=t.why||'';
+  document.getElementById('fhw').value=t.how||'';
+  // 編集モードフラグ
+  document.getElementById('modal').dataset.editId=id;
+  document.querySelector('#modal .mttl span').textContent='タスクを編集';
+  document.querySelector('#modal .sbtn').textContent='更新 → Sheets同期';
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function delTask(id){
+  if(!confirm('このタスクを削除しますか？'))return;
+  tasks=tasks.filter(x=>x.id!==id);
+  ra();doSync();
 }
 
 function loadFromSheets(){
