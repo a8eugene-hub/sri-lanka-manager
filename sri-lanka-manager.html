@@ -135,6 +135,7 @@ input,select,textarea,button{font-family:inherit}
     <button class="lang-btn on" onclick="setLang('ja')" id="bja">JA</button>
     <button class="lang-btn" onclick="setLang('en')" id="ben">EN</button>
     <button class="sync-btn" onclick="doSync()" id="synbtn"><i class="ti ti-refresh"></i><span id="synlbl">Sync</span></button>
+    <button class="sync-btn" onclick="loadFromSheets()" id="loadbtn" style="background:var(--blue)"><i class="ti ti-download"></i><span id="loadlbl">読込</span></button>
     <div class="avatar" style="width:28px;height:28px;background:var(--accent-l);color:var(--accent-d);font-size:10px;font-weight:600">YM</div>
   </div>
 </div>
@@ -551,6 +552,59 @@ function saveMem(){
   const av=initials(name);
   MEM.push({id:'mem_'+Date.now(),name,role:document.getElementById('mem-role').value.trim()||'Staff',av,bg:selAvColor.bg,tc:selAvColor.tc});
   closeMemModal();ra();
+}
+
+function loadFromSheets(){
+  const btn=document.getElementById('loadbtn'),pill=document.getElementById('pill'),lbl=document.getElementById('loadlbl');
+  btn.disabled=true; lbl.textContent='読込中...';
+  pill.className='pill ing'; pill.textContent='Sheetsから読込中';
+  const cbName='gasLoad_'+Date.now();
+  const url=WH+'?type=load_tasks&callback='+cbName;
+  const script=document.createElement('script');
+  script.src=url;
+  window[cbName]=function(res){
+    if(res.status==='ok' && res.tasks && res.tasks.length>0){
+      // Sheetsのデータでタスクを上書き（名前→IDに変換）
+      tasks=res.tasks.map((t,i)=>({
+        id: parseInt(t.id)||i+1,
+        what: t.what||'',
+        who: memIdByName(t.who),
+        biz: bizIdByName(t.biz),
+        start: t.start||'',
+        end: t.end||'',
+        pri: t.pri||'mid',
+        why: t.why||'',
+        how: t.how||'',
+        done: t.done||false
+      }));
+      idN=tasks.length+1;
+      pill.className='pill ok'; pill.textContent=tasks.length+'件読み込み完了';
+      setTimeout(()=>{pill.className='pill';},3000);
+      ra();
+    } else {
+      pill.className='pill err'; pill.textContent='データなし';
+    }
+    btn.disabled=false; lbl.textContent='読込';
+    document.body.removeChild(script); delete window[cbName];
+  };
+  script.onerror=function(){
+    pill.className='pill err'; pill.textContent='読込失敗';
+    btn.disabled=false; lbl.textContent='読込';
+    try{document.body.removeChild(script);}catch(e){} delete window[cbName];
+  };
+  setTimeout(function(){if(window[cbName]){pill.className='pill err';pill.textContent='Timeout';btn.disabled=false;lbl.textContent='読込';try{document.body.removeChild(script);}catch(e){}delete window[cbName];}},15000);
+  document.body.appendChild(script);
+}
+
+function memIdByName(name){
+  if(!name) return MEM[0].id;
+  const m=MEM.find(x=>x.name.toLowerCase().includes(name.toLowerCase().split('（')[0].split('(')[0].trim()));
+  return m?m.id:MEM[0].id;
+}
+function bizIdByName(name){
+  if(!name) return BIZ[0].id;
+  const b=BIZ.find(x=>x.ja.includes(name)||x.en.toLowerCase().includes(name.toLowerCase())||(x.id&&name.includes(x.id)));
+  return b?b.id:BIZ[0].id;
 }
 
 function ra(){rDash();rTasks();rOrg();if(document.getElementById('sec-gantt').classList.contains('on'))rGantt();if(document.getElementById('sec-rep').classList.contains('on'))rRep();}
